@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>吊船每日檢查</title>
+<style>
+:root {
+  --safe:       #1a6b35;
+  --safe-bg:    #eafaf0;
+  --safe-bd:    #2ecc71;
+  --danger:     #8b1a1a;
+  --danger-bg:  #fdecea;
+  --danger-bd:  #e74c3c;
+  --pending:    #7a5500;
+  --pending-bg: #fef9e7;
+  --pending-bd: #f39c12;
+  --ink:        #1c2b3a;
+  --muted:      #6b7280;
+  --bg:         #f0f2f5;
+  --card:       #ffffff;
+  --line:       #dde1e7;
+  --dsal:       #00703c;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;background:var(--bg);}
+ 
+/* ── NAV ── */
+.nav{display:flex;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:200;box-shadow:0 2px 6px rgba(0,0,0,.06);}
+.nav button{flex:1;padding:14px 4px;font-size:13px;font-weight:600;border:none;background:none;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;transition:.2s;}
+.nav button.on{color:var(--ink);border-bottom-color:var(--ink);}
+.page{display:none;}.page.on{display:block;}
+ 
+/* ══════════════════════════════
+   TAB 1  語音申報（同v3）
+══════════════════════════════ */
+.t1{padding:20px 16px;max-width:420px;margin:0 auto;}
+.datechip{text-align:center;font-size:13px;color:var(--muted);margin-bottom:18px;}
+.status-card{border-radius:20px;padding:36px 16px;text-align:center;margin-bottom:22px;background:var(--card);border:2px solid var(--line);transition:all .3s;}
+.status-card.safe   {background:var(--safe-bg);   border-color:var(--safe-bd);}
+.status-card.danger {background:var(--danger-bg);  border-color:var(--danger-bd);}
+.status-card.pending{background:var(--pending-bg); border-color:var(--pending-bd);}
+.s-icon{font-size:52px;display:block;margin-bottom:10px;}
+.s-text{font-size:34px;font-weight:800;letter-spacing:2px;}
+.status-card.safe    .s-text{color:var(--safe);}
+.status-card.danger  .s-text{color:var(--danger);}
+.status-card.pending .s-text{color:var(--pending);}
+.status-card:not(.safe):not(.danger):not(.pending) .s-text{color:var(--muted);font-size:20px;font-weight:500;}
+.big-btn{width:100%;padding:26px;font-size:21px;font-weight:700;border:none;border-radius:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:.2s;margin-bottom:14px;}
+.mic-btn{background:var(--ink);color:#fff;box-shadow:0 4px 14px rgba(28,43,58,.25);}
+.mic-btn.rec{background:#c0392b;animation:pulse 1.2s infinite;}
+.reset-btn{background:var(--danger-bg);color:var(--danger);border:2px solid var(--danger-bd);font-size:18px;padding:16px;}
+@keyframes pulse{0%,100%{box-shadow:0 4px 14px rgba(192,57,43,.25);}50%{box-shadow:0 4px 28px rgba(192,57,43,.55);}}
+.sim-lbl{font-size:11px;color:var(--muted);text-align:center;margin-bottom:8px;letter-spacing:.4px;}
+.sim-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px;}
+.sim-btn{padding:12px 4px;font-size:13px;font-weight:600;border:2px solid;border-radius:10px;cursor:pointer;background:var(--card);transition:.15s;text-align:center;}
+.sim-btn:active{opacity:.75;}
+.ss{border-color:var(--safe-bd);  color:var(--safe);}  .ss:hover{background:var(--safe-bg);}
+.sd{border-color:var(--danger-bd);color:var(--danger);}.sd:hover{background:var(--danger-bg);}
+.sp{border-color:var(--pending-bd);color:var(--pending);}.sp:hover{background:var(--pending-bg);}
+.raw-box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--muted);text-align:center;min-height:44px;}
+ 
+/* ══════════════════════════════
+   TAB 2  DSAL Form 15 紙本複製版
+══════════════════════════════ */
+.t2-outer{
+  background:#888;
+  padding:12px;
+  min-height:100vh;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.paper{
+  min-width:650px;
+}
+ 
+/* 截圖提示 */
+.screenshot-tip{
+  background:#1c2b3a;
+  color:#fff;
+  text-align:center;
+  padding:10px;
+  font-size:13px;
+  margin-bottom:10px;
+  border-radius:8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+ 
+/* 紙本模擬容器 */
+.paper{
+  background:#fff;
+  width:100%;
+  max-width:900px;
+  margin:0 auto;
+  padding:14px 16px;
+  box-shadow:0 4px 20px rgba(0,0,0,.35);
+  font-family:"SimSun","Times New Roman",serif;
+  font-size:10.5px;
+  line-height:1.35;
+  color:#000;
+}
+ 
+/* 表頭 */
+.paper-head{
+  display:grid;
+  grid-template-columns:60px 1fr 60px;
+  align-items:center;
+  border-bottom:2px solid #000;
+  padding-bottom:8px;
+  margin-bottom:8px;
+}
+.paper-logo{
+  width:50px;height:50px;
+  border:2.5px solid var(--dsal);
+  border-radius:50%;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  color:var(--dsal);
+  font-size:7px;
+  font-weight:700;
+  line-height:1.2;
+  text-align:center;
+  font-family:sans-serif;
+}
+.paper-logo-inner{
+  width:34px;height:34px;
+  border:1.5px dashed var(--dsal);
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;
+}
+.paper-center{text-align:center;}
+.paper-dept{font-size:14px;font-weight:700;letter-spacing:3px;color:#000;font-family:sans-serif;}
+.paper-dept-pt{font-size:9px;color:#333;font-family:sans-serif;margin-bottom:5px;}
+.paper-title{font-size:12.5px;font-weight:700;color:#000;}
+.paper-title-pt{font-size:9px;font-style:italic;color:#444;margin-top:2px;}
+.paper-law{font-size:8.5px;color:#555;margin-top:4px;font-family:sans-serif;}
+.paper-form-no{font-size:9px;color:#333;font-family:sans-serif;text-align:right;}
+ 
+/* 元資料大表 */
+.meta-tbl{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:10px;}
+.meta-tbl td{border:1px solid #000;padding:4px 6px;vertical-align:top;}
+.meta-tbl .lbl{font-weight:700;display:block;font-size:10px;}
+.meta-tbl .lbl-pt{display:block;font-style:italic;font-size:8px;color:#444;font-weight:normal;}
+.meta-tbl .val{font-size:10.5px;min-height:14px;}
+ 
+/* 複選框仿真 */
+.fake-check{
+  display:inline-block;
+  width:11px;height:11px;
+  border:1px solid #000;
+  text-align:center;
+  line-height:10px;
+  font-size:9px;
+  margin-right:2px;
+  vertical-align:middle;
+}
+.fake-check.checked::after{content:"✓";}
+ 
+/* 記錄主表 */
+.rec-tbl{width:100%;border-collapse:collapse;font-size:10px;}
+.rec-tbl th{border:1px solid #000;padding:5px 4px;background:#f2f2f2;font-weight:700;text-align:center;font-size:9.5px;vertical-align:middle;}
+.rec-tbl td{border:1px solid #000;padding:5px 4px;text-align:center;vertical-align:middle;}
+.rec-tbl .th-cn{display:block;}
+.rec-tbl .th-pt{display:block;font-style:italic;font-weight:normal;font-size:8px;color:#555;}
+.today-row td{background:#fffde7;}
+.rsafe  {color:#000;font-weight:700;}
+.rdanger{color:#c0392b;font-weight:700;}
+.rpend  {color:#e67e22;font-weight:600;}
+.rwait  {color:#999;font-weight:400;font-style:italic;}
+.sign-line{
+  display:block;
+  width:70%;
+  margin:4px auto 0;
+  border-bottom:1px solid #999;
+  height:14px;
+}
+ 
+/* 備註 */
+.paper-notes{
+  margin-top:8px;
+  font-size:8.5px;
+  border-top:1px solid #000;
+  padding-top:6px;
+  line-height:1.5;
+  color:#000;
+  font-family:sans-serif;
+}
+ 
+/* 列印按鈕 */
+.print-fab{
+  position:fixed;
+  bottom:20px;right:16px;
+  background:var(--dsal);
+  color:#fff;
+  border:none;
+  border-radius:50px;
+  padding:12px 20px;
+  font-size:14px;
+  font-weight:700;
+  cursor:pointer;
+  box-shadow:0 4px 14px rgba(0,112,60,.4);
+  z-index:300;
+  display:none;
+}
+ 
+/* ══════════════════════════════
+   TAB 3  設定
+══════════════════════════════ */
+.t3{padding:20px 16px;max-width:420px;margin:0 auto;}
+.t3 h2{font-size:19px;font-weight:700;color:var(--ink);margin-bottom:8px;}
+.paste-card{background:#e8f0fe;border:1.5px dashed #4a90d9;border-radius:14px;padding:16px;margin-bottom:20px;}
+.paste-card h3{font-size:13px;font-weight:700;color:#1a5ea8;margin-bottom:6px;}
+.paste-card p{font-size:12px;color:#2c5f8a;line-height:1.5;margin-bottom:8px;}
+.paste-example{font-size:11px;background:#fff;border:1px solid #c0d8f5;border-radius:8px;padding:8px 10px;color:#333;font-family:monospace;margin-bottom:10px;line-height:1.6;}
+.paste-input{width:100%;padding:10px 12px;font-size:14px;border:1.5px solid #4a90d9;border-radius:10px;background:#fff;color:var(--ink);resize:vertical;min-height:68px;font-family:inherit;}
+.parse-btn{width:100%;padding:13px;font-size:15px;font-weight:700;background:#4a90d9;color:#fff;border:none;border-radius:10px;cursor:pointer;margin-top:8px;}
+.parse-btn:active{opacity:.8;}
+.field-group{background:var(--card);border-radius:14px;border:1px solid var(--line);overflow:hidden;margin-bottom:16px;}
+.f-row{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:5px;}
+.f-row:last-child{border-bottom:none;}
+.f-lbl{font-size:12px;font-weight:600;color:var(--ink);}
+.f-lbl-pt{font-size:10px;color:var(--muted);font-style:italic;}
+.f-inp{font-size:16px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--ink);background:var(--bg);width:100%;}
+.f-inp:focus{outline:2px solid var(--ink);}
+.save-btn{width:100%;padding:18px;font-size:18px;font-weight:700;background:var(--ink);color:#fff;border:none;border-radius:14px;cursor:pointer;}
+.save-btn:active{opacity:.85;}
+.toast{display:none;text-align:center;margin-top:10px;font-size:14px;color:var(--safe);font-weight:600;}
+ 
+/* ── Print ── */
+@media print{
+  .nav,.t1,.t3,.screenshot-tip,.print-fab{display:none!important;}
+  .t2-outer{background:#fff;padding:0;}
+  .paper{box-shadow:none;max-width:100%;padding:10px;}
+  .today-row td{background:#fff!important;}
+}
+</style>
+</head>
+<body>
+ 
+<nav class="nav">
+  <button class="on" onclick="go('t1')">🎙️ 語音申報</button>
+  <button onclick="go('t2')">📄 Form 15</button>
+  <button onclick="go('t3')">⚙️ 設定</button>
+</nav>
+ 
+<!-- ══════ TAB 1 語音申報 ══════ -->
+<div id="t1" class="page t1 on">
+  <div class="datechip" id="lbl-date"></div>
+  <div class="status-card" id="statusCard">
+    <span class="s-icon">🔄</span>
+    <span class="s-text">等待申報</span>
+  </div>
+ 
+  <p style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6;padding:0 8px;">
+    本系統僅作輔助申報用途<br>最終安全判定須由指定人員確認及簽署
+  </p>
+ 
+  <button class="big-btn mic-btn" id="micBtn" onclick="toggleMic()">🎙️ 按此開始講話</button>
+  <button class="big-btn reset-btn" onclick="doReset()">🔄 重設 Reset</button>
+  <div class="sim-lbl">── 演示模式 Simulation Mode ──</div>
+  <div class="sim-row">
+    <button class="sim-btn ss" onclick="applyResult('safe','安全好用')">✅ 安全可用</button>
+    <button class="sim-btn sd" onclick="applyResult('danger','斷咗鋼絲')">🛑 禁止使用</button>
+    <button class="sim-btn sp" onclick="applyResult('pending','應該使用')">⚠️ 需覆核</button>
+  </div>
+  <div class="raw-box" id="rawBox">語音原文將顯示於此</div>
+</div>
+ 
+<!-- ══════ TAB 2 DSAL Form 15 紙本版 ══════ -->
+<div id="t2" class="page">
+<div class="t2-outer">
+ 
+  <div class="screenshot-tip">
+    📸 截圖此頁面可用作臨時表格備存 &nbsp;|&nbsp; 建議橫屏截圖以獲最佳效果
+  </div>
+ 
+  <div class="paper" id="paperForm">
+ 
+    <!-- 表頭 -->
+    <div class="paper-head">
+      <div class="paper-logo">
+        <div class="paper-logo-inner">⚖️</div>
+      </div>
+      <div class="paper-center">
+        <div class="paper-dept">勞 工 事 務 局</div>
+        <div class="paper-dept-pt">Direcção dos Serviços para os Assuntos Laborais</div>
+        <div class="paper-title">吊船或吊索式工作平台在每日使用前檢查的專用表格</div>
+        <div class="paper-title-pt">Formulário próprio para inspecção de bailéu ou plataforma suspensa antes da sua utilização diária</div>
+        <div class="paper-law">第32/2023號行政法規第八十四條第五款 &nbsp;/&nbsp; N.º 5 do artigo 84.º do Regulamento Administrativo n.º 32/2023</div>
+      </div>
+      <div class="paper-form-no">表格編號<br>Form No.<br>DSAL-F15</div>
+    </div>
+ 
+    <!-- 元資料 -->
+    <table class="meta-tbl">
+      <tr>
+        <td width="12%">
+          <span class="lbl">類別<span class="lbl-pt">Tipo</span></span>
+        </td>
+        <td width="38%">
+          <span class="fake-check checked"></span>吊船 Bailéu &nbsp;&nbsp;
+          <span class="fake-check"></span>吊索式工作平台 Plataforma suspensa
+        </td>
+        <td width="20%">
+          <span class="lbl">承造商名稱<span class="lbl-pt">Nome do empreiteiro</span></span>
+        </td>
+        <td width="30%">
+          <div class="val" id="f-contractor">—</div>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <span class="lbl">建築工地和工程地點<span class="lbl-pt">Estaleiro e local de obra</span></span>
+        </td>
+        <td colspan="3">
+          <div class="val" id="f-site">—</div>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <span class="lbl">品牌和型號<span class="lbl-pt">Marca e modelo</span></span>
+        </td>
+        <td>
+          <div class="val" id="f-device">—</div>
+        </td>
+        <td>
+          <span class="lbl">最高安全操作負荷(公噸)<span class="lbl-pt">Carga máxima de utilização segura (toneladas)</span></span>
+        </td>
+        <td>
+          <div class="val" id="f-load">—</div>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <span class="lbl">承造商給予的識別編號<span class="lbl-pt">Número de identificação atribuído pelo empreiteiro</span></span>
+        </td>
+        <td>
+          <div class="val" id="f-idno">—</div>
+        </td>
+        <td>
+          <span class="lbl">製造商名稱<span class="lbl-pt">Nome do fabricante</span></span>
+        </td>
+        <td>
+          <div class="val" id="f-maker">—</div>
+        </td>
+      </tr>
+    </table>
+ 
+    <!-- 記錄表 -->
+    <table class="rec-tbl">
+      <thead>
+        <tr>
+          <th width="16%">
+            <span class="th-cn">檢查日期</span>
+            <span class="th-pt">Data da inspecção</span>
+          </th>
+          <th width="28%">
+            <span class="th-cn">檢查結果 註2</span>
+            <span class="th-pt">Resultado da inspecção Nota 2</span>
+          </th>
+          <th width="20%">
+            <span class="th-cn">指定人員姓名</span>
+            <span class="th-pt">Nome da pessoa designada</span>
+          </th>
+          <th width="16%">
+            <span class="th-cn">職稱</span>
+            <span class="th-pt">Cargo</span>
+          </th>
+          <th width="20%">
+            <span class="th-cn">簽名</span>
+            <span class="th-pt">Assinatura</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>01/11/2023</td>
+          <td><span class="rsafe">安全可用</span></td>
+          <td>李平安</td><td>操作員</td>
+          <td><span class="sign-line"></span></td>
+        </tr>
+        <tr>
+          <td>08/11/2023</td>
+          <td><span class="rsafe">安全可用</span></td>
+          <td>李安好</td><td>操作員</td>
+          <td><span class="sign-line"></span></td>
+        </tr>
+        <tr>
+          <td>15/11/2023</td>
+          <td><span class="rsafe">安全可用</span></td>
+          <td>李安好</td><td>操作員</td>
+          <td><span class="sign-line"></span></td>
+        </tr>
+        <!-- 今日行 -->
+        <tr class="today-row">
+          <td id="f-date" style="font-size:10px;">—<br><span id="f-time" style="font-size:8.5px;color:#777;"></span></td>
+          <td id="f-result"><span class="rwait">（待檢查）</span></td>
+          <td id="f-name">—</td>
+          <td id="f-cargo-cell">—</td>
+          <td><span class="sign-line"></span></td>
+        </tr>
+        <!-- 空行（預留下次使用）-->
+        <tr><td>&nbsp;</td><td></td><td></td><td></td><td><span class="sign-line"></span></td></tr>
+        <tr><td>&nbsp;</td><td></td><td></td><td></td><td><span class="sign-line"></span></td></tr>
+      </tbody>
+    </table>
+ 
+    <!-- 備註 -->
+    <div class="paper-notes">
+      <strong>註1：</strong>如未能確定，則填寫「不確定」。&nbsp;&nbsp;
+      <strong>Nota 1:</strong> Na impossibilidade da sua determinação, escreva «Indeterminado».<br>
+      <strong>註2：</strong>檢查項目須包括所有懸吊纜索、安全纜索及防墮安全裝置。如吊船或吊索式工作平台處於安全操作狀態，則填寫<strong>「安全可用」</strong>；否則填寫<strong>「禁止使用」</strong>，以及所需的修理。<br>
+      <em>Nota 2: Os itens de inspecção têm de incluir todos os cabos de trabalho, cabos de segurança e dispositivos de segurança contra quedas. Se o bailéu ou a plataforma suspensa se encontrar em estado operacional seguro, escreva «Seguro(a) para utilização»; caso contrário, escreva «Utilização proibida» e indique as reparações necessárias.</em>
+    </div>
+ 
+  </div><!-- /paper -->
+</div><!-- /t2-outer -->
+<button class="print-fab" id="printFab" onclick="window.print()">🖨️ 列印</button>
+</div>
+ 
+<!-- ══════ TAB 3 設定 ══════ -->
+<div id="t3" class="page t3">
+  <h2>⚙️ 設備資料設定</h2>
+  <div class="paste-card">
+    <h3>📋 快速貼上（一鍵填表）</h3>
+    <p>管理員在微信發以下格式，DDAW複製後貼入下方，按「自動填寫」。分隔符可用逗號、頓號或換行。</p>
+    <div class="paste-example">格式（6項，依次貼上）：<br>承造商名稱，工地地點，設備型號，最高負荷，操作員姓名，職稱<br><br>例：ABC建築有限公司，假日酒店天台，M-1吊船，0.5噸最多2人，李安好，指定操作員</div>
+    <textarea class="paste-input" id="pasteInput" placeholder="在此貼上微信發來的資料..."></textarea>
+    <button class="parse-btn" onclick="doParse()">⚡ 自動填寫所有欄位</button>
+  </div>
+ 
+  <div class="field-group">
+    <div class="f-row">
+      <label class="f-lbl">承造商名稱 <span class="f-lbl-pt">Nome do empreiteiro</span></label>
+      <input class="f-inp" id="s-contractor" type="text" placeholder="例：ABC建築有限公司">
+    </div>
+    <div class="f-row">
+      <label class="f-lbl">建築工地及地點 <span class="f-lbl-pt">Estaleiro e local de obra</span></label>
+      <input class="f-inp" id="s-site" type="text" placeholder="例：假日酒店天台">
+    </div>
+    <div class="f-row">
+      <label class="f-lbl">設備識別編號／型號 <span class="f-lbl-pt">Número de identificação / Modelo</span></label>
+      <input class="f-inp" id="s-device" type="text" placeholder="例：M-1吊船">
+    </div>
+    <div class="f-row">
+      <label class="f-lbl">最高安全操作負荷 <span class="f-lbl-pt">Carga máxima</span></label>
+      <input class="f-inp" id="s-load" type="text" placeholder="例：0.5噸，最多2人">
+    </div>
+    <div class="f-row">
+      <label class="f-lbl">製造商名稱 <span class="f-lbl-pt">Nome do fabricante</span></label>
+      <input class="f-inp" id="s-maker" type="text" placeholder="例：OK機械制造有限公司">
+    </div>
+    <div class="f-row">
+      <label class="f-lbl">操作員姓名 <span class="f-lbl-pt">Nome do operador</span></label>
+      <input class="f-inp" id="s-operator" type="text" placeholder="例：李安好">
+    </div>
+    <div class="f-row">
+      <label class="f-lbl">職稱 <span class="f-lbl-pt">Cargo</span></label>
+      <input class="f-inp" id="s-cargo" type="text" placeholder="例：指定操作員">
+    </div>
+  </div>
+  <button class="save-btn" onclick="saveSettings()">💾 儲存設定</button>
+  <div class="toast" id="toast">✅ 已儲存，表格已自動更新</div>
+</div>
+ 
+<script>
+/* ── 關鍵詞庫 ── */
+const KW_SAFE=['冇事','冇問題','安全','可以','冇嘢','搞掂','無問題','好用',
+  '得㗎','可用','無事','正常','掂晒','沒事','安全可用','沒問題',
+  'safe','ok','okay','good','fine','clear','no problem','all good','all clear','ready'];
+const KW_DANGER=['斷咗','斷絲','爛咗','壞咗','甩咗','花晒','有問題','唔用得',
+  '唔安全','危險','唔掂','出事','有裂','甩皮','唔得','不能用','壞了','斷了',
+  '有損','唔好用','需要維修','暫停','禁止',
+  'broken','damage','damaged','fault','fail','unsafe','danger',
+  'stop','halt','do not use','out of service','not safe','cracked','worn','defect'];
+const KW_AMBIG=['應該','烤干','烤乾','即使','差唔多','好似','唔知','可能','maybe'];
+ 
+/* ── 日期 ── */
+const now=new Date();
+const dd=String(now.getDate()).padStart(2,'0');
+const mm=String(now.getMonth()+1).padStart(2,'0');
+const yyyy=now.getFullYear();
+document.getElementById('lbl-date').textContent=`檢查日期：${yyyy}-${mm}-${dd}`;
+document.getElementById('f-date').textContent=`${dd}/${mm}/${yyyy}`;
+ 
+/* ── Tab ── */
+function go(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  const idx={'t1':0,'t2':1,'t3':2}[id];
+  document.querySelectorAll('.nav button')[idx].classList.add('on');
+  document.getElementById('printFab').style.display=(id==='t2')?'block':'none';
+}
+ 
+/* ── 分類 ── */
+function classify(text){
+  const t=text.toLowerCase();
+  for(const k of KW_AMBIG)if(t.includes(k))return'pending';
+  for(const k of KW_DANGER)if(t.includes(k))return'danger';
+  for(const k of KW_SAFE)if(t.includes(k))return'safe';
+  if(text.trim().length<2)return'pending';
+  return'pending';
+}
+ 
+/* ── 套用結果（Tab1狀態卡 + Tab2表格）── */
+function applyResult(status,raw){
+  const card=document.getElementById('statusCard');
+  const fRes=document.getElementById('f-result');
+  const s=getSettings();
+  const op=s.operator||'—';
+  const cg=s.cargo||'—';
+ 
+  card.className='status-card '+status;
+  if(status==='safe'){
+    card.innerHTML='<span class="s-icon">✅</span><span class="s-text">安全可用</span>';
+    fRes.innerHTML='<span class="rsafe">安全可用</span>';
+  }else if(status==='danger'){
+    card.innerHTML='<span class="s-icon">🛑</span><span class="s-text">禁止使用</span>';
+    fRes.innerHTML='<span class="rdanger">禁止使用</span>';
+  }else{
+    card.innerHTML='<span class="s-icon">⚠️</span><span class="s-text">需要覆核</span>';
+    fRes.innerHTML='<span class="rpend">⚠️ 等待主管確認</span>';
+  }
+  document.getElementById('f-name').textContent=op;
+  document.getElementById('f-cargo-cell').textContent=cg;
+  document.getElementById('rawBox').textContent=`語音原文：「${raw}」`;
+  // 申報時間timestamp
+  const tn=new Date();
+  const th=String(tn.getHours()).padStart(2,'0');
+  const tmi=String(tn.getMinutes()).padStart(2,'0');
+  const ts=String(tn.getSeconds()).padStart(2,'0');
+  const tEl=document.getElementById('f-time');
+  if(tEl) tEl.textContent=`申報：${th}:${tmi}:${ts}`;
+}
+ 
+/* ── Reset ── */
+function doReset(){
+  const card=document.getElementById('statusCard');
+  card.className='status-card';
+  card.innerHTML='<span class="s-icon">🔄</span><span class="s-text">等待申報</span>';
+  document.getElementById('f-result').innerHTML='<span class="rwait">（待檢查）</span>';
+  document.getElementById('f-name').textContent='—';
+  document.getElementById('f-cargo-cell').textContent='—';
+  document.getElementById('rawBox').textContent='語音原文將顯示於此';
+  const tEl=document.getElementById('f-time');
+  if(tEl) tEl.textContent='';
+}
+ 
+/* ── 語音 ── */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let recog=null,isRec=false;
+function toggleMic(){
+  if(!SR){
+    document.getElementById('rawBox').innerHTML='<span style="color:#e74c3c;font-weight:bold;">⚠️ 當前環境不支援語音輸入（如微信內置瀏覽器）。<br>請複製網址改用 Safari 或 Chrome 打開，或使用下方演示模式按鈕。</span>';
+    return;
+  }
+  if(isRec){recog.stop();return;}
+  recog=new SR();recog.lang='zh-HK';recog.continuous=false;recog.interimResults=false;
+  recog.onstart=()=>{
+    isRec=true;
+    const b=document.getElementById('micBtn');
+    b.textContent='🛑 錄音中⋯⋯再按停止';b.classList.add('rec');
+  };
+  recog.onresult=(e)=>{
+    const raw=e.results[0][0].transcript;
+    applyResult(classify(raw),raw);
+  };
+  recog.onend=()=>{
+    isRec=false;
+    const b=document.getElementById('micBtn');
+    b.textContent='🎙️ 按此開始講話';b.classList.remove('rec');
+  };
+  recog.onerror=(e)=>{
+    isRec=false;
+    document.getElementById('micBtn').textContent='🎙️ 按此開始講話';
+    document.getElementById('micBtn').classList.remove('rec');
+    if(e.error==='not-allowed'){
+      document.getElementById('rawBox').innerHTML='<span style="color:#e74c3c;">❌ 麥克風權限被拒絕。<br>請到手機設定中允許瀏覽器使用麥克風，或使用下方演示模式。</span>';
+    } else {
+      document.getElementById('rawBox').textContent='錄音提示：'+e.error+'（可使用演示模式按鈕）';
+    }
+  };
+  recog.start();
+}
+ 
+/* ── 快速貼上解析 ── */
+function doParse(){
+  const raw=document.getElementById('pasteInput').value.trim();
+  if(!raw){alert('請先貼上資料');return;}
+  const parts=raw.split(/[,，;；\n]+/).map(s=>s.trim()).filter(Boolean);
+  const map=[
+    ['s-contractor',0],['s-site',1],['s-device',2],
+    ['s-load',3],['s-operator',4],['s-cargo',5]
+  ];
+  map.forEach(([id,i])=>{
+    if(parts[i]!==undefined){
+      const el=document.getElementById(id);
+      el.value=parts[i];
+      el.style.background='#eafaf0';
+      setTimeout(()=>el.style.background='',2000);
+    }
+  });
+}
+ 
+/* ── 設定 ── */
+function getSettings(){
+  try{return JSON.parse(localStorage.getItem('gondola_v4')||'{}');}catch{return{};}
+}
+function applyToForm(s){
+  document.getElementById('f-contractor').textContent=s.contractor||'—';
+  document.getElementById('f-site').textContent=s.site||'—';
+  document.getElementById('f-device').textContent=s.device||'—';
+  document.getElementById('f-idno').textContent=s.device||'—';
+  document.getElementById('f-load').textContent=s.load||'—';
+  document.getElementById('f-maker').textContent=s.maker||'—';
+}
+function saveSettings(){
+  const s={
+    contractor:document.getElementById('s-contractor').value.trim(),
+    site:document.getElementById('s-site').value.trim(),
+    device:document.getElementById('s-device').value.trim(),
+    load:document.getElementById('s-load').value.trim(),
+    maker:document.getElementById('s-maker').value.trim(),
+    operator:document.getElementById('s-operator').value.trim(),
+    cargo:document.getElementById('s-cargo').value.trim(),
+  };
+  localStorage.setItem('gondola_v4',JSON.stringify(s));
+  applyToForm(s);
+  const t=document.getElementById('toast');
+  t.style.display='block';
+  setTimeout(()=>t.style.display='none',2500);
+}
+function loadSettings(){
+  const s=getSettings();
+  applyToForm(s);
+  const flds=[['s-contractor','contractor'],['s-site','site'],['s-device','device'],
+    ['s-load','load'],['s-maker','maker'],['s-operator','operator'],['s-cargo','cargo']];
+  flds.forEach(([id,key])=>{if(s[key])document.getElementById(id).value=s[key];});
+}
+loadSettings();
+</script>
+</body>
+</html>
+ 
